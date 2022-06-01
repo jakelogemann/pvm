@@ -2,3 +2,5 @@ result
 *.swp
 *.swo
 .direnv
+.envrc
+.pre-commit-config.yaml
