@@ -28,9 +28,6 @@
           nixpkgs.config.allowUnfree = true;
           nixpkgs.config.allowUnsupportedSystem = true;
           services.xserver.enable = true;
-          sound.enable = lib.mkForce false;
-          system.activationScripts.check-psf-fnctl = "test ! -d /media/psf/fnctl || echo 'couldn't find /media/psf/fnctl ... ' >&2";
-          system.activationScripts.ln-psf-pvm = "test ! -d /media/psf/pvm || echo 'couldn't find /media/psf/pvm' >&2";
           system.fnctl.enableDefaults = true;
           system.stateVersion = "22.05";
           users.defaultUserShell = pkgs.zsh;
