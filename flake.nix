@@ -57,72 +57,91 @@
                 ./parallels-guest.nix
               ];
 
-              fileSystems."/" .fsType = "ext4";
-              fileSystems."/".device = "/dev/disk/by-label/nixos";
-              fileSystems."/boot".device = "/dev/disk/by-label/boot";
-              fileSystems."/boot".fsType = "vfat";
-              fonts.enableDefaultFonts = true;
-              networking.interfaces.enp0s5.useDHCP = true;
-              nix.allowedUsers = [userName];
-              security.sudo.wheelNeedsPassword = lib.mkForce false;
-              users.groups.${groupName} = {};
-              users.groups.docker = {};
-              users.groups.wheel = {};
+              fonts.fonts = with pkgs; [
+                terminus-nerdfont
+                xkcd-font
+                hack-font
+              ];
+
+              environment.systemPackages = with pkgs; [
+                alejandra
+                jq
+                yq
+                ranger
+                ripgrep
+                nix-direnv
+                ssh-copy-id
+                tmux
+                tree
+                unrar
+                unzip
+                self.inputs.fnctl.outputs.packages.${pkgs.system}.neovim
+
+                wl-clipboard
+                sway
+                swaycwd
+                alacritty
+                wlsunset
+                light
+                firefox
+                rofi
+                zathura
+                swayidle
+                swaylock
+                wl-color-picker
+                sway-contrib.grimshot
+
+                (writeShellApplication {
+                  name = "system";
+                  runtimeInputs = [
+                    nixos-option
+                    jq
+                    nixos-rebuild
+                    nix
+                    self.inputs.fnctl.outputs.packages.${pkgs.system}.neovim
+                  ];
+                  text = ''
+                    cd /etc/nixos && echo "# $PWD ..."; set -eo pipefail
+
+                    case "$1" in
+                      edit) exec sudo nvim flake.nix ;;
+                      repl) exec sudo nix repl ;;
+                      fmt) exec find . -name "*.nix" | xargs sudo alejandra ;;
+                      show|metadata|update) exec sudo nix flake "$@" ;;
+                      git) exec sudo "$@" ;;
+                      build|dry-build|dry-run|build-vm|build-vm-with-bootloader|dry-activate)
+                        exec sudo nixos-rebuild --install-bootloader "$@" ;;
+                      test|switch) exec sudo nixos-rebuild --install-bootloader "$@" ;;
+                      *) echo "$0 edit|boot|build|test|dry-activate|build-vm|..." ;;
+                    esac
+                  '';
+                })
+              ];
+
+              programs.sway.extraSessionCommands = ''
+                export SDL_VIDEODRIVER=wayland
+                export QT_QPA_PLATFORM=wayland-egl
+                export QT_WAYLAND_DISABLE_WINDOWDECORATION="1"
+                export _JAVA_AWT_WM_NONREPARENTING=1
+                export WLR_NO_HARDWARE_CURSORS=1
+              '';
+
               users.users.${userName} = {
                 initialPassword = "${userName}l33t${groupName}!";
                 isNormalUser = true;
                 group = groupName;
                 extraGroups = ["users" "docker" "wheel"];
-                packages = with pkgs; [
-                  (pkgs.writeShellScriptBin "system" "sudo nixos-rebuild --install-bootloader \"\$@\"")
-                  (pkgs.writeShellScriptBin "system-edit" "cd /etc/nixos && \$EDITOR \"\$@\"")
-                  (pkgs.writeShellScriptBin "system-update" "cd /etc/nixos && sudo nix flake update \"\$@\"")
-                  (pkgs.writeShellScriptBin "system-git" "cd /etc/nixos && sudo git \"\$@\"")
-                  (pkgs.writeShellScriptBin "system-fmt" "cd /etc/nixos && sudo nix fmt \"\$@\"")
-                  alejandra
-                  jq
-                  nix-direnv
-                  ranger
-                  ripgrep
-                  ssh-copy-id
-                  tmux
-                  tree
-                  unrar
-                  unzip
-                  yq
-                  (symlinkJoin {
-                    name = "desktop";
-                    postBuild = "echo links added";
-                    paths = [
-                      wlsunset
-                      light
-                      alacritty
-                      firefox
-                      rofi
-                      zathura
-                      wl-clipboard
-                      sway
-                      swaycwd
-                      swayidle
-                      swaylock
-                      wl-color-picker
-                      terminus-nerdfont
-                      xkcd-font
-                      hack-font
-                      sway-contrib.grimshot
-                    ];
-                  })
-                ];
               };
 
-              environment.variables.EDITOR = "nvim";
-              environment.systemPackages = with pkgs; [
-                self.inputs.fnctl.outputs.packages.${pkgs.system}.neovim
-              ];
-
               home-manager.sharedModules = [
-                ({...}: {
-                  fonts.fontconfig.enable = true;
+                ({pkgs, ...}: let
+                  modifier = "Mod4";
+                  launchTerm = writeShellApplication {
+                    name = "launch-terminal";
+                    runtimeInputs = with pkgs; [alacritty swaycwd];
+                    text = "cd \"\$(swaycwd)\" && exec alacritty --working-directory=\"\$PWD\" \"\$@\"";
+                  };
+                in {
                   home.enableNixpkgsReleaseCheck = false;
                   xdg.enable = true;
                   xdg.mime.enable = true;
@@ -135,48 +154,6 @@
                   xdg.userDirs.pictures = "$HOME/My/Pictures";
                   xdg.userDirs.publicShare = "/var/empty";
                   xdg.userDirs.extraConfig.XDG_MISC_DIR = "$HOME/Misc";
-
-                  xdg.desktopEntries.example = {
-                    name = "Example";
-                    genericName = "Example";
-                    exec = "firefox %U";
-                    terminal = false;
-                    categories = ["Application"];
-                    mimeType = ["text/html"];
-                  };
-
-                  xdg.desktopEntries.terminal = {
-                    name = "Terminal ";
-                    genericName = "Terminal ";
-                    terminal = false;
-                    categories = ["Application"];
-                    mimeType = ["text/html"];
-                    exec = "bash -c ${(pkgs.writeShellScript "launch-terminal" ''
-                      exec alacritty --working-directory=$(swaycwd)
-                    '')}";
-                  };
-
-                  xdg.desktopEntries.editor = {
-                    name = "Editor";
-                    genericName = "Editor";
-                    terminal = false;
-                    categories = ["Application"];
-                    mimeType = ["text/plain"];
-                    exec = "bash -c ${(pkgs.writeShellScript "launch-terminal" ''
-                      exec alacritty --working-directory=$(swaycwd) -e "$EDITOR"
-                    '')}";
-                  };
-
-                  xdg.desktopEntries.ranger = rec {
-                    name = "Ranger";
-                    genericName = name;
-                    terminal = false;
-                    categories = ["Application"];
-                    mimeType = ["text/plain"];
-                    exec = "bash -c ${(pkgs.writeShellScript "launch-terminal" ''
-                      exec alacritty --working-directory=$(swaycwd) -e "$EDITOR"
-                    '')}";
-                  };
 
                   programs.waybar = {
                     enable = true;
@@ -191,9 +168,7 @@
                     settings.mainBar."sway/workspaces".all-outputs = true;
                   };
 
-                  wayland.windowManager.sway = let
-                    modifier = "Mod4";
-                  in {
+                  wayland.windowManager.sway = {
                     enable = true;
                     swaynag.enable = true;
                     wrapperFeatures.gtk = true;
@@ -203,18 +178,18 @@
                       export QT_QPA_PLATFORM=wayland-egl
                       export QT_WAYLAND_DISABLE_WINDOWDECORATION="1"
                       export _JAVA_AWT_WM_NONREPARENTING=1
-                      export WLR_NO_HARDWARE_CURSORS=0
+                      export WLR_NO_HARDWARE_CURSORS=1
                     '';
                     config = {
-                      inherit modifier;
-                      assigns."1: web" = [{class = "^Firefox$";}];
-                      assigns."0: extra" = [
-                        {
+                      assigns = {
+                        "1: web" = [{class = "^Firefox$";}];
+                        "0: extra" = singleton {
                           class = "^Firefox$";
                           window_role = "About";
-                        }
-                      ];
+                        };
+                      };
 
+                      inherit modifier;
                       floating.titlebar = false;
                       fonts.names = [defaultFont];
                       fonts.size = 14.0;
@@ -262,14 +237,6 @@
                       };
 
                       keybindings = {
-                        "XF86Display" = "exec xrandr --output eDP-1 --auto --output DP-1 --off --output DP-2 --off --output HDMI-1 --off";
-                        "${modifier}+XF86Display" = "exec xrandr --output eDP-1 --off --output DP-1 --auto --output DP-2 --auto --output HDMI-1 --auto";
-                        "XF86AudioMute" = "exec amixer set Master toggle";
-                        "XF86AudioLowerVolume" = "exec amixer set Master 4%-";
-                        "XF86AudioRaiseVolume" = "exec amixer set Master 4%+";
-                        "XF86MonBrightnessDown" = "exec brightnessctl set 4%-";
-                        "XF86MonBrightnessUp" = "exec brightnessctl set 4%+";
-
                         "${modifier}+Shift+0" = "move scratchpad";
                         "${modifier}+Shift+1" = "move container to workspace number 1";
                         "${modifier}+Shift+2" = "move container to workspace number 2";
@@ -332,19 +299,31 @@
                         "${modifier}+Shift+Tab" = "workspace prev_on_output";
                         "${modifier}+Shift+q" = "kill";
                         "${modifier}+Tab" = "workspace next_on_output";
-                        "${modifier}+f" = "exec alacritty -e ranger";
+                        "${modifier}+f" = "exec ${launchTerm} -e ranger";
                         "${modifier}+d" = "exec ${pkgs.dmenu}/bin/dmenu_run";
-                        "${modifier}+e" = "exec alacritty -e vim";
+                        "${modifier}+e" = "exec ${launchTerm} -e vim";
                         "${modifier}+grave" = "workspace back_and_forth";
                         "${modifier}+Space" = "exec rofi -show drun";
                         "${modifier}+r" = "exec rofi -show drun";
-                        "${modifier}+t" = "exec alacritty";
-                        "${modifier}+w" = "exec firefox";
+                        "${modifier}+t" = "exec ${launchTerm}";
+                        "${modifier}+w" = "exec ${getExe pkgs.firefox}";
+
+                        "XF86Display" = "exec xrandr --output eDP-1 --auto --output DP-1 --off --output DP-2 --off --output HDMI-1 --off";
+                        "${modifier}+XF86Display" = "exec xrandr --output eDP-1 --off --output DP-1 --auto --output DP-2 --auto --output HDMI-1 --auto";
+                        "XF86AudioMute" = "exec amixer set Master toggle";
+                        "XF86AudioLowerVolume" = "exec amixer set Master 4%-";
+                        "XF86AudioRaiseVolume" = "exec amixer set Master 4%+";
+                        "XF86MonBrightnessDown" = "exec brightnessctl set 4%-";
+                        "XF86MonBrightnessUp" = "exec brightnessctl set 4%+";
+
+                        "Control+Shift+q" = "exec swaymsg exit";
                       };
                     };
                   };
 
                   programs.bat.enable = true;
+                  programs.fzf.enable = true;
+                  programs.fzf.enableZshIntegration = true;
                   programs.command-not-found.enable = false;
                   programs.direnv.enable = true;
                   programs.gh.enable = true;
@@ -384,9 +363,24 @@
                   services.gpg-agent.enableSshSupport = true;
                 })
               ];
-              programs.zsh.interactiveShellInit = ''
-                autoload -Uz promptinit colors bashcompinit compinit && compinit && bashcompinit && promptinit && colors
-              '';
+
+              programs.sway.enable = true;
+              programs.sway.extraOptions = ["--verbose" "--debug"];
+              programs.sway.wrapperFeatures.gtk = true;
+              programs.sway.wrapperFeatures.base = true;
+              environment.variables.EDITOR = "nvim";
+              fileSystems."/" .fsType = "ext4";
+              fileSystems."/".device = "/dev/disk/by-label/nixos";
+              fileSystems."/boot".device = "/dev/disk/by-label/boot";
+              fileSystems."/boot".fsType = "vfat";
+              fonts.enableDefaultFonts = true;
+              networking.interfaces.enp0s5.useDHCP = true;
+              nix.allowedUsers = [userName];
+              security.sudo.wheelNeedsPassword = lib.mkForce false;
+              users.groups.${groupName} = {};
+              users.groups.docker = {};
+              users.groups.wheel = {};
+              programs.zsh.interactiveShellInit = "autoload -Uz promptinit colors bashcompinit compinit && compinit && bashcompinit && promptinit && colors";
             })
           ];
         };
