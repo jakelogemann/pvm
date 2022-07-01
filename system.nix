@@ -2,12 +2,11 @@
   self,
   fnctl,
   nixpkgs,
-  hostName,
-  system,
   ...
 }:
-fnctl.lib.mkSystem {
-  inherit system hostName;
+fnctl.lib.mkSystem rec {
+  system = "aarch64-linux";
+  hostName = "pvm";
   withDocs = true;
   modules = [
     ({
@@ -57,6 +56,7 @@ fnctl.lib.mkSystem {
         environment.systemPackages = with pkgs; [
           aide
           alacritty
+          neovim
           alejandra
           docker-credential-helpers
           firefox-wayland
@@ -131,7 +131,7 @@ fnctl.lib.mkSystem {
     ({lib, ...}: {
       disabledModules = ["virtualisation/parallels-guest.nix"];
       imports = [fnctl.nixosModules.parallels];
-      nixpkgs.overlays = lib.mkForce [fnctl.overlays.default];
+      nixpkgs.overlays = lib.mkForce [fnctl.overlays.default self.overlays.default ];
       nix.registry = lib.mkForce {
         fnctl.flake = fnctl;
         nixpkgs.flake = nixpkgs;
