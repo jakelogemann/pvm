@@ -49,8 +49,14 @@
     urgency = "#e74c3c";
   in {
     inherit (fnctl.outputs) formatter overlays;
+    devShells.default = with pkgs; mkShell {
+      name = hostName;
+      buildInputs = [ nix alejandra ];
+    };
+    nixConfig = import ./nixConfig.nix inputs;
     nixosConfigurations.${hostName} = fnctl.lib.mkSystem rec {
       inherit system hostName;
+      withDocs = true;
       modules = [
         ({
           config,
@@ -61,9 +67,7 @@
           with lib; {
             disabledModules = ["virtualisation/parallels-guest.nix"];
             imports = [fnctl.nixosModules.parallels];
-            nix.registry.nixpkgs.flake = nixpkgs;
-            nix.registry.fnctl.flake = fnctl;
-
+            nix.registry = lib.mkForce (lib.mapAttrs (name: value: { flake = value; }) inputs); 
             fonts.fonts = with pkgs; [
               terminus-nerdfont
               xkcd-font
@@ -76,7 +80,6 @@
               alacritty
               alejandra
               cage
-              chromium
               docker-credential-helpers
               firefox-wayland
               gnupg
