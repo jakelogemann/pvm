@@ -2,7 +2,7 @@ rec {
   description = "virtual machine";
 
   inputs.fnctl = {
-    url = "github:fnctl/fnctl.nix";
+    url = "github:fnctl/nix";
     inputs.nixpkgs.follows = "nixpkgs";
   };
   inputs.nixpkgs.url = "nixpkgs/nixos-22.05";
