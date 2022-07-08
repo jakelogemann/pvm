@@ -97,11 +97,11 @@ fnctl.lib.mkSystem rec {
           extraGroups = ["users" "wheel" "systemd-journal"];
         };
 
-        networking.nameservers = lib.mkForce ["127.0.0.1" "::1"];
-        networking.resolvconf.enable = lib.mkForce false;
-        networking.dhcpcd.extraConfig = lib.mkForce "nohook resolv.conf";
-        networking.networkmanager.dns = lib.mkForce "none";
-        systemd.services.dnscrypt-proxy2.serviceConfig.StateDirectory = lib.mkForce "dnscrypt-proxy2";
+       #networking.nameservers = lib.mkForce ["127.0.0.1" "::1"];
+       #networking.resolvconf.enable = lib.mkForce false;
+       #networking.dhcpcd.extraConfig = lib.mkForce "nohook resolv.conf";
+       #networking.networkmanager.dns = lib.mkForce "none";
+       #systemd.services.dnscrypt-proxy2.serviceConfig.StateDirectory = lib.mkForce "dnscrypt-proxy2";
         boot.kernelModules = ["kvm-intel" "br_netfilter"];
         services.earlyoom.enable = true;
         services.earlyoom.freeMemThreshold = 10;
@@ -130,7 +130,10 @@ fnctl.lib.mkSystem rec {
 
     ({lib, ...}: {
       disabledModules = ["virtualisation/parallels-guest.nix"];
-      imports = [fnctl.nixosModules.parallels];
+      imports = [
+        fnctl.nixosModules.parallels
+        ./network.nix
+      ];
       nixpkgs.overlays = lib.mkForce [fnctl.overlays.default self.overlays.default ];
       nix.registry = lib.mkForce {
         fnctl.flake = fnctl;
