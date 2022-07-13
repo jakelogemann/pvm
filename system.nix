@@ -103,6 +103,7 @@ fnctl.lib.mkSystem rec {
        #networking.networkmanager.dns = lib.mkForce "none";
        #systemd.services.dnscrypt-proxy2.serviceConfig.StateDirectory = lib.mkForce "dnscrypt-proxy2";
         boot.kernelModules = ["kvm-intel" "br_netfilter"];
+        boot.binfmt.emulatedSystems = [ "x86_64-linux" ];       
         services.earlyoom.enable = true;
         services.earlyoom.freeMemThreshold = 10;
         services.earlyoom.freeSwapThreshold = 10;
